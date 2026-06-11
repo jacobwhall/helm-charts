@@ -1,7 +1,7 @@
 apiVersion: v2
 name: sharkey
 description: Helm chart for Sharkey (Misskey fork) Fediverse server on Kubernetes
-version: 0.1.1
+version: 0.1.2
 appVersion: "2025.5.2-dev"
 
 dependencies:
