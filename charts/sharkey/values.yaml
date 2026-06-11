@@ -1,0 +1,256 @@
+# ============================================================
+# Sharkey application settings
+# ============================================================
+sharkey:
+  image:
+    repository: ghcr.io/jacobwhall/sharkey
+    # Deterministic pin produced by the GHCR build workflow (docker/metadata
+    # type=sha). Bump this whenever you push a new build you want to deploy.
+    tag: "sha-63c4f07"
+    pullPolicy: IfNotPresent
+
+  # IMMUTABLE after first run — set correctly before deploying
+  url: "https://sometime.social/"
+  port: 3000
+
+  # ID generation method — IMMUTABLE after first run
+  id: "aidx"
+
+  # One-time password used to bootstrap the admin account on first run.
+  # Leave empty to skip the field (Sharkey will let any first user become admin).
+  setupPassword: ""
+
+  # Number of worker processes inside the container
+  clusterLimit: 1
+
+  # Maximum upload size in bytes (matches the droplet's 500 MB setting)
+  maxFileSize: 500000000
+
+  # Database replication (set true and configure dbSlaves via extraConfig)
+  dbReplications: false
+
+  # General behavior toggles (Sharkey defaults)
+  proxyRemoteFiles: true
+  websocketCompression: true
+
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+
+  # Pod security context — Sharkey runs as UID 991
+  securityContext:
+    runAsUser: 991
+    runAsGroup: 991
+    fsGroup: 991
+
+  # Persistent volume for local file storage (only if NOT using S3).
+  # Disabled: media lives in Cloudflare R2, configured via the admin panel
+  # (stored in the DB), so no local files volume is needed.
+  persistence:
+    enabled: false
+    storageClass: ""
+    size: 10Gi
+    accessMode: ReadWriteOnce
+
+  # S3-compatible object storage (recommended for Kubernetes)
+  objectStorage:
+    enabled: false
+    baseUrl: ""
+    bucket: ""
+    prefix: "files"
+    endpoint: ""
+    region: "us-east-1"
+    # Inline credentials (used when existingSecret is empty)
+    accessKey: ""
+    secretKey: ""
+    # Pre-create a Secret with keys "accessKey" and "secretKey", then
+    # set its name here. Resolved via Helm `lookup` at install/upgrade
+    # time, so the Secret must already exist in the release namespace.
+    existingSecret: ""
+
+  # ActivityPub settings
+  signToActivityPubGet: true
+  attachLdSignatureForRelays: true
+  # Replaces the deprecated `checkActivityPubGetSignature`.
+  # Values: 'never' | 'essential' | 'always'  (matches the droplet)
+  authorizedFetchMode: "essential"
+
+  # Full-text search engine selector (Sharkey config: fulltextSearch.provider).
+  # The meilisearch block below only supplies connection details — this is what
+  # actually activates the engine. Options:
+  #   sqlLike (default) | sqlPgroonga | meilisearch | sqlTsvector
+  # Set to "meilisearch" whenever meilisearch.enabled is true.
+  fulltextSearch:
+    provider: "meilisearch"
+
+  # Meilisearch — applies when meilisearch.enabled is true.
+  meilisearch:
+    # Required: master key for Meilisearch (>= 16 chars).
+    # Used as MEILI_MASTER_KEY for the Meilisearch pod and as apiKey for Sharkey.
+    masterKey: ""
+    # Index name used by Sharkey for note search (matches the droplet).
+    index: "sometime_social"
+    # 'local' (default) or 'global' (include remote/federated notes).
+    scope: "global"
+
+  # Raw YAML appended verbatim to default.yml. Use for fields the chart
+  # doesn't model directly (Sentry, customMOTD, customHtml, mediaProxy,
+  # logging, allowedPrivateNetworks, dbSlaves, redisForReactions, etc.).
+  # Example:
+  #   extraConfig: |
+  #     customMOTD: ['Welcome', 'Have fun']
+  #     mediaProxy: https://media.example.com
+  extraConfig: ""
+
+# ============================================================
+# CloudNativePG PostgreSQL cluster
+# ============================================================
+cnpg:
+  enabled: true
+  instances: 1
+  # >= the droplet's PG 16.14 so the logical import restores cleanly
+  imageName: "ghcr.io/cloudnative-pg/postgresql:16.14"
+
+  # Database credentials
+  database: "sharkey"
+  owner: "sharkey"
+  password: "change-this-password"    # Or use existingSecret
+
+  storage:
+    storageClass: ""
+    size: 20Gi
+
+  walStorage:
+    enabled: false
+    storageClass: ""
+    size: 5Gi
+
+  resources:
+    requests:
+      cpu: "1"
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  postgresql:
+    shared_buffers: "256MB"
+    effective_cache_size: "768MB"
+    work_mem: "8MB"
+    maintenance_work_mem: "128MB"
+    max_connections: "100"
+
+  # Migration: import from external PostgreSQL via pg_dump.
+  # Mutually exclusive with cnpg.recover.enabled.
+  import:
+    enabled: false
+    sourceHost: "192.168.1.100"
+    sourcePort: "5432"
+    sourceUser: "postgres"
+    sourcePassword: "source-password"
+    sourceDatabase: "sharkey"
+
+  # WAL archiving + scheduled backups via the Barman Cloud Plugin:
+  #   https://github.com/cloudnative-pg/plugin-barman-cloud
+  # The plugin must already be installed in the cluster.
+  # The s3Credentials.{accessKeyId,secretAccessKey} blocks reference an
+  # existing Secret you pre-create in the release namespace.
+  backup:
+    enabled: false
+    schedule: "0 0 3 * * *"     # 6-field cron (sec min hr dom mon dow); daily 03:00 UTC
+    retentionPolicy: "30d"
+    objectStoreName: ""         # defaults to <fullname>-backup-store when empty
+    s3Credentials:
+      destinationPath: ""       # e.g. s3://my-bucket/sharkey
+      endpointUrl: ""           # leave empty for AWS S3
+      accessKeyId:
+        name: ""
+        key: "ACCESS_KEY_ID"
+      secretAccessKey:
+        name: ""
+        key: "SECRET_ACCESS_KEY"
+
+  # Bootstrap a fresh cluster from an existing Barman backup.
+  # Mutually exclusive with cnpg.import.enabled.
+  recover:
+    enabled: false
+    objectStoreName: ""         # defaults to <fullname>-recover-store when empty
+    serverName: ""              # source cluster name in the backup; defaults to <fullname>-db
+    s3Credentials:
+      destinationPath: ""
+      endpointUrl: ""
+      accessKeyId:
+        name: ""
+        key: "ACCESS_KEY_ID"
+      secretAccessKey:
+        name: ""
+        key: "SECRET_ACCESS_KEY"
+
+# ============================================================
+# Valkey (official chart) — Redis-compatible cache/queue
+# https://github.com/valkey-io/valkey-helm
+# ============================================================
+valkey:
+  enabled: true
+
+  # -- Standalone is all we need for a single Sharkey instance
+  replica:
+    enabled: false
+
+  # -- ACL-based auth (official chart uses auth.aclUsers)
+  auth:
+    enabled: true
+    aclUsers:
+      default:
+        password: "change-this-valkey-password"
+        permissions: "~* &* +@all"
+
+  # -- Persistent storage for Valkey data
+  dataStorage:
+    enabled: true
+    requestedSize: "2Gi"
+    className: ""
+    accessModes:
+      - ReadWriteOnce
+    keepPvc: true
+
+  # -- Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# ============================================================
+# Meilisearch subchart overrides
+# ============================================================
+meilisearch:
+  enabled: true
+  environment:
+    MEILI_ENV: production
+    MEILI_NO_ANALYTICS: "true"
+  auth:
+    # Points at the Secret rendered by templates/meilisearch-key.yaml.
+    # `tpl` is applied in the subchart, so .Release.Name resolves correctly.
+    existingMasterKeySecret: "{{ .Release.Name }}-meilisearch-key"
+  persistence:
+    enabled: true
+    size: 5Gi
+  service:
+    type: ClusterIP
+    port: 7700
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

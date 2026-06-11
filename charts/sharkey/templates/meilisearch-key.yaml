@@ -1,0 +1,14 @@
+{{- if .Values.meilisearch.enabled }}
+{{- if not .Values.sharkey.meilisearch.masterKey }}
+{{- fail "sharkey.meilisearch.masterKey must be set when meilisearch.enabled is true" }}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-meilisearch-key
+  labels:
+    {{- include "sharkey.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  MEILI_MASTER_KEY: {{ .Values.sharkey.meilisearch.masterKey | quote }}
+{{- end }}

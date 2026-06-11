@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sharkey.fullname" . }}
+  labels:
+    {{- include "sharkey.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.sharkey.replicas }}
+  selector:
+    matchLabels:
+      {{- include "sharkey.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: Recreate          # Avoid two pods writing to PVC simultaneously
+  template:
+    metadata:
+      labels:
+        {{- include "sharkey.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/sharkey-config.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsUser: {{ .Values.sharkey.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.sharkey.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.sharkey.securityContext.fsGroup }}
+      containers:
+        - name: sharkey
+          image: "{{ .Values.sharkey.image.repository }}:{{ .Values.sharkey.image.tag }}"
+          imagePullPolicy: {{ .Values.sharkey.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.sharkey.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.sharkey.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /sharkey/.config
+              readOnly: true
+            {{- if .Values.sharkey.persistence.enabled }}
+            - name: files
+              mountPath: /sharkey/files
+            {{- end }}
+      volumes:
+        - name: config
+          secret:
+            secretName: {{ include "sharkey.fullname" . }}-config
+            items:
+              - key: default.yml
+                path: default.yml
+        {{- if .Values.sharkey.persistence.enabled }}
+        - name: files
+          persistentVolumeClaim:
+            claimName: {{ include "sharkey.fullname" . }}-files
+        {{- end }}

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Sharkey Helm chart values",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "sharkey": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Public URL of the Sharkey instance. IMMUTABLE after first run.",
+          "pattern": "^https?://[^/]+/?$",
+          "not": { "const": "https://sharkey.example.com/" }
+        },
+        "meilisearch": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "masterKey": {
+              "type": "string",
+              "description": "Meilisearch master key. Required when meilisearch.enabled is true."
+            }
+          }
+        },
+        "objectStorage": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "accessKey": { "type": "string" },
+            "secretKey": { "type": "string" },
+            "existingSecret": { "type": "string" }
+          }
+        }
+      }
+    },
+    "cnpg": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "password": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "const": "change-this-password" }
+        }
+      }
+    },
+    "valkey": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "auth": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "aclUsers": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "default": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "password": {
+                      "type": "string",
+                      "minLength": 1,
+                      "not": { "const": "change-this-valkey-password" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "meilisearch": {
+            "properties": { "enabled": { "const": true } },
+            "required": ["enabled"]
+          }
+        },
+        "required": ["meilisearch"]
+      },
+      "then": {
+        "properties": {
+          "sharkey": {
+            "properties": {
+              "meilisearch": {
+                "properties": {
+                  "masterKey": { "minLength": 16 }
+                },
+                "required": ["masterKey"]
+              }
+            },
+            "required": ["meilisearch"]
+          }
+        }
+      }
+    }
+  ]
+}

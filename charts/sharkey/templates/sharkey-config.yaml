@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "sharkey.fullname" . }}-config
+  labels:
+    {{- include "sharkey.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  default.yml: |
+    #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Sharkey configuration — managed by Helm
+    #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    url: {{ .Values.sharkey.url | quote }}
+    port: {{ .Values.sharkey.port }}
+    {{- if .Values.sharkey.setupPassword }}
+    setupPassword: {{ .Values.sharkey.setupPassword | quote }}
+    {{- end }}
+
+    # ── PostgreSQL ──────────────────────────────────
+    db:
+      host: {{ include "sharkey.dbHost" . }}
+      port: 5432
+      db: {{ .Values.cnpg.database }}
+      user: {{ .Values.cnpg.owner }}
+      pass: {{ .Values.cnpg.password | quote }}
+
+    dbReplications: {{ .Values.sharkey.dbReplications }}
+
+    # ── Valkey (Redis-compatible) ───────────────────
+    {{- $valkeyHost := include "sharkey.valkeyHost" . }}
+    {{- $valkeyPass := include "sharkey.valkeyPassword" . }}
+    redis:
+      host: {{ $valkeyHost }}
+      port: 6379
+      {{- if $valkeyPass }}
+      pass: {{ $valkeyPass | quote }}
+      {{- end }}
+
+    redisForPubsub:
+      host: {{ $valkeyHost }}
+      port: 6379
+      {{- if $valkeyPass }}
+      pass: {{ $valkeyPass | quote }}
+      {{- end }}
+
+    redisForJobQueue:
+      host: {{ $valkeyHost }}
+      port: 6379
+      {{- if $valkeyPass }}
+      pass: {{ $valkeyPass | quote }}
+      {{- end }}
+
+    redisForTimelines:
+      host: {{ $valkeyHost }}
+      port: 6379
+      {{- if $valkeyPass }}
+      pass: {{ $valkeyPass | quote }}
+      {{- end }}
+
+    # ── Full-text search ────────────────────────────
+    fulltextSearch:
+      provider: {{ .Values.sharkey.fulltextSearch.provider | quote }}
+
+    {{- if .Values.meilisearch.enabled }}
+    # ── Meilisearch ─────────────────────────────────
+    meilisearch:
+      host: {{ include "sharkey.meilisearchHost" . }}
+      port: {{ .Values.meilisearch.service.port | default 7700 }}
+      apiKey: {{ .Values.sharkey.meilisearch.masterKey | quote }}
+      ssl: false
+      index: {{ .Values.sharkey.meilisearch.index | quote }}
+      scope: {{ .Values.sharkey.meilisearch.scope | quote }}
+    {{- end }}
+
+    {{- if .Values.sharkey.objectStorage.enabled }}
+    # ── Object Storage ──────────────────────────────
+    objectStorage:
+      baseUrl: {{ .Values.sharkey.objectStorage.baseUrl | quote }}
+      bucket: {{ .Values.sharkey.objectStorage.bucket | quote }}
+      prefix: {{ .Values.sharkey.objectStorage.prefix | quote }}
+      endpoint: {{ .Values.sharkey.objectStorage.endpoint | quote }}
+      region: {{ .Values.sharkey.objectStorage.region | quote }}
+      {{- if .Values.sharkey.objectStorage.existingSecret }}
+      {{- /* lookup returns nil during `helm template` (no API). Real install/upgrade resolves it against the cluster. */}}
+      {{- $sec := lookup "v1" "Secret" .Release.Namespace .Values.sharkey.objectStorage.existingSecret }}
+      {{- if $sec }}
+      accessKey: {{ index $sec.data "accessKey" | b64dec | quote }}
+      secretKey: {{ index $sec.data "secretKey" | b64dec | quote }}
+      {{- else }}
+      accessKey: ""
+      secretKey: ""
+      {{- end }}
+      {{- else }}
+      accessKey: {{ .Values.sharkey.objectStorage.accessKey | quote }}
+      secretKey: {{ .Values.sharkey.objectStorage.secretKey | quote }}
+      {{- end }}
+    {{- end }}
+
+    # ── Misc ────────────────────────────────────────
+    id: {{ .Values.sharkey.id | quote }}
+    signToActivityPubGet: {{ .Values.sharkey.signToActivityPubGet }}
+    attachLdSignatureForRelays: {{ .Values.sharkey.attachLdSignatureForRelays }}
+    authorizedFetchMode: {{ .Values.sharkey.authorizedFetchMode | quote }}
+    proxyRemoteFiles: {{ .Values.sharkey.proxyRemoteFiles }}
+    websocketCompression: {{ .Values.sharkey.websocketCompression }}
+    {{- if .Values.sharkey.clusterLimit }}
+    clusterLimit: {{ .Values.sharkey.clusterLimit }}
+    {{- end }}
+    maxFileSize: {{ int64 .Values.sharkey.maxFileSize }}
+
+    proxyBypassHosts:
+      - api.deepl.com
+      - api-free.deepl.com
+      - www.recaptcha.net
+      - hcaptcha.com
+      - challenges.cloudflare.com
+    {{- with .Values.sharkey.extraConfig }}
+
+    # ── Extra (raw) ─────────────────────────────────
+    {{- . | nindent 4 }}
+    {{- end }}

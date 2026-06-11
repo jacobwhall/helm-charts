@@ -1,0 +1,23 @@
+{{- if and .Values.cnpg.enabled .Values.cnpg.recover.enabled }}
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ include "sharkey.cnpgRecoverStoreName" . }}
+  labels:
+    {{- include "sharkey.labels" . | nindent 4 }}
+spec:
+  configuration:
+    destinationPath: {{ .Values.cnpg.recover.s3Credentials.destinationPath | quote }}
+    {{- if .Values.cnpg.recover.s3Credentials.endpointUrl }}
+    endpointURL: {{ .Values.cnpg.recover.s3Credentials.endpointUrl | quote }}
+    {{- end }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ .Values.cnpg.recover.s3Credentials.accessKeyId.name | quote }}
+        key: {{ .Values.cnpg.recover.s3Credentials.accessKeyId.key | quote }}
+      secretAccessKey:
+        name: {{ .Values.cnpg.recover.s3Credentials.secretAccessKey.name | quote }}
+        key: {{ .Values.cnpg.recover.s3Credentials.secretAccessKey.key | quote }}
+    wal:
+      compression: gzip
+{{- end }}

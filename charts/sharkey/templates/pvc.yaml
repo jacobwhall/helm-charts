@@ -1,0 +1,17 @@
+{{- if .Values.sharkey.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "sharkey.fullname" . }}-files
+  labels:
+    {{- include "sharkey.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.sharkey.persistence.accessMode }}
+  {{- if .Values.sharkey.persistence.storageClass }}
+  storageClassName: {{ .Values.sharkey.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.sharkey.persistence.size }}
+{{- end }}

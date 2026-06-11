@@ -1,0 +1,9 @@
+dependencies:
+- name: meilisearch
+  repository: https://meilisearch.github.io/meilisearch-kubernetes
+  version: 0.25.1
+- name: valkey
+  repository: https://valkey.io/valkey-helm/
+  version: 0.9.4
+digest: sha256:860aa39ff1cb1ef4ff70455069f317d929209556aafc6d35c82d9facd8b2b9fa
+generated: "2026-04-26T16:01:36.128973235-04:00"

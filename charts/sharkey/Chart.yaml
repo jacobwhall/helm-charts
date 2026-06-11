@@ -1,0 +1,16 @@
+apiVersion: v2
+name: sharkey
+description: Helm chart for Sharkey (Misskey fork) Fediverse server on Kubernetes
+version: 0.1.0
+appVersion: "2025.5.2-dev"
+
+dependencies:
+  - name: meilisearch
+    version: "~0.25"
+    repository: "https://meilisearch.github.io/meilisearch-kubernetes"
+    condition: meilisearch.enabled
+
+  - name: valkey
+    version: "~0.9"
+    repository: "https://valkey.io/valkey-helm/"
+    condition: valkey.enabled

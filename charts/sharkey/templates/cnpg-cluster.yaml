@@ -1,0 +1,98 @@
+{{- if .Values.cnpg.enabled }}
+{{- if and .Values.cnpg.import.enabled .Values.cnpg.recover.enabled }}
+{{- fail "cnpg.import.enabled and cnpg.recover.enabled are mutually exclusive — pick one bootstrap mode" }}
+{{- end }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "sharkey.cnpgClusterName" . }}
+  labels:
+    {{- include "sharkey.labels" . | nindent 4 }}
+spec:
+  description: "Sharkey PostgreSQL database"
+  imageName: {{ .Values.cnpg.imageName }}
+  instances: {{ .Values.cnpg.instances }}
+
+  bootstrap:
+    {{- if .Values.cnpg.recover.enabled }}
+    recovery:
+      source: source
+    {{- else }}
+    initdb:
+      database: {{ .Values.cnpg.database }}
+      owner: {{ .Values.cnpg.owner }}
+      secret:
+        name: {{ include "sharkey.cnpgClusterName" . }}-credentials
+      dataChecksums: true
+      encoding: UTF8
+      localeCType: en_US.UTF-8
+      localeCollate: en_US.UTF-8
+      {{- if .Values.cnpg.import.enabled }}
+      import:
+        type: microservice
+        databases:
+          - {{ .Values.cnpg.import.sourceDatabase }}
+        source:
+          externalCluster: source-vm
+      {{- end }}
+    {{- end }}
+
+  postgresql:
+    parameters:
+      shared_buffers: {{ .Values.cnpg.postgresql.shared_buffers | quote }}
+      effective_cache_size: {{ .Values.cnpg.postgresql.effective_cache_size | quote }}
+      work_mem: {{ .Values.cnpg.postgresql.work_mem | quote }}
+      maintenance_work_mem: {{ .Values.cnpg.postgresql.maintenance_work_mem | quote }}
+      max_connections: {{ .Values.cnpg.postgresql.max_connections | quote }}
+      log_min_duration_statement: "1000"
+      timezone: "UTC"
+
+  resources:
+    {{- toYaml .Values.cnpg.resources | nindent 4 }}
+
+  storage:
+    {{- if .Values.cnpg.storage.storageClass }}
+    storageClass: {{ .Values.cnpg.storage.storageClass }}
+    {{- end }}
+    size: {{ .Values.cnpg.storage.size }}
+
+  {{- if .Values.cnpg.walStorage.enabled }}
+  walStorage:
+    {{- if .Values.cnpg.walStorage.storageClass }}
+    storageClass: {{ .Values.cnpg.walStorage.storageClass }}
+    {{- end }}
+    size: {{ .Values.cnpg.walStorage.size }}
+  {{- end }}
+
+  {{- if .Values.cnpg.backup.enabled }}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ include "sharkey.cnpgBackupStoreName" . }}
+  {{- end }}
+
+  {{- if or .Values.cnpg.import.enabled .Values.cnpg.recover.enabled }}
+  externalClusters:
+    {{- if .Values.cnpg.import.enabled }}
+    - name: source-vm
+      connectionParameters:
+        host: {{ .Values.cnpg.import.sourceHost | quote }}
+        port: {{ .Values.cnpg.import.sourcePort | quote }}
+        user: {{ .Values.cnpg.import.sourceUser | quote }}
+        dbname: "postgres"
+        sslmode: "prefer"
+      password:
+        name: {{ include "sharkey.cnpgClusterName" . }}-source-credentials
+        key: password
+    {{- end }}
+    {{- if .Values.cnpg.recover.enabled }}
+    - name: source
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: {{ include "sharkey.cnpgRecoverStoreName" . }}
+          serverName: {{ default (include "sharkey.cnpgClusterName" .) .Values.cnpg.recover.serverName | quote }}
+    {{- end }}
+  {{- end }}
+{{- end }}
