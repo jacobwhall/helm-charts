@@ -3,6 +3,24 @@ entries:
   sharkey:
   - apiVersion: v2
     appVersion: 2025.5.2-dev
+    created: "2026-06-11T07:24:41.404852658Z"
+    dependencies:
+    - condition: meilisearch.enabled
+      name: meilisearch
+      repository: https://meilisearch.github.io/meilisearch-kubernetes
+      version: ~0.25
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm/
+      version: ~0.9
+    description: Helm chart for Sharkey (Misskey fork) Fediverse server on Kubernetes
+    digest: be41eea688416c285465bc97ff7848458f2b59b5fdea417397d78f54fbd54a36
+    name: sharkey
+    urls:
+    - https://github.com/jacobwhall/helm-charts/releases/download/sharkey-0.1.2/sharkey-0.1.2.tgz
+    version: 0.1.2
+  - apiVersion: v2
+    appVersion: 2025.5.2-dev
     created: "2026-06-11T07:22:02.445292029Z"
     dependencies:
     - condition: meilisearch.enabled
@@ -19,4 +37,4 @@ entries:
     urls:
     - https://github.com/jacobwhall/helm-charts/releases/download/sharkey-0.1.1/sharkey-0.1.1.tgz
     version: 0.1.1
-generated: "2026-06-11T07:22:02.445301042Z"
+generated: "2026-06-11T07:24:41.404863935Z"
